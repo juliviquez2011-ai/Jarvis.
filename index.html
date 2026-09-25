@@ -41,27 +41,6 @@
            z-index: 10;
        }
 
-       /* Widget Superior Central: Hora y Clima */
-       #jarvis-status-header {
-           position: absolute;
-           top: 15px;
-           left: 50%;
-           transform: translateX(-50%);
-           display: flex;
-           align-items: center;
-           gap: 15px;
-           background: var(--theme-bg);
-           border: 1px solid var(--theme-glow);
-           padding: 6px 18px;
-           border-radius: 20px;
-           font-family: monospace;
-           color: var(--theme-color);
-           font-size: 13px;
-           backdrop-filter: blur(5px);
-           z-index: 100;
-           box-shadow: 0 0 15px var(--theme-glow);
-       }
-
        #api-config-panel {
            position: absolute;
            top: 20px;
@@ -354,13 +333,6 @@
 </head>
 <body>
 
-   <!-- Widget Superior Central: Hora y Clima -->
-   <div id="jarvis-status-header" class="interactive">
-       <div id="header-time">--:--:--</div>
-       <div style="width: 1px; height: 12px; background: var(--theme-glow);"></div>
-       <div id="header-weather">Costa Rica: Sincronizando...</div>
-   </div>
-
    <canvas id="bg-canvas"></canvas>
    
    <div id="core-hud-wrapper">
@@ -468,38 +440,6 @@
    </div>
 
    <script>
-       // --- 1. Reloj y Clima Automático de Costa Rica ---
-       function actualizarReloj() {
-           const now = new Date();
-           document.getElementById('header-time').innerText = now.toLocaleTimeString();
-       }
-       setInterval(actualizarReloj, 1000);
-       actualizarReloj();
-
-       async function obtenerClimaLocal() {
-           if ("geolocation" in navigator) {
-               navigator.geolocation.getCurrentPosition(async (position) => {
-                   const lat = position.coords.latitude;
-                   const lon = position.coords.longitude;
-                   try {
-                       const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`);
-                       const data = await res.json();
-                       if (data && data.current_weather) {
-                           const temp = data.current_weather.temperature;
-                           document.getElementById('header-weather').innerText = `CR: ${temp}°C`;
-                       }
-                   } catch (e) {
-                       document.getElementById('header-weather').innerText = "Costa Rica: En línea";
-                   }
-               }, () => {
-                   document.getElementById('header-weather').innerText = "Costa Rica: 24°C";
-               });
-           } else {
-               document.getElementById('header-weather').innerText = "Costa Rica: 24°C";
-           }
-       }
-       obtenerClimaLocal();
-
        const canvas = document.getElementById('bg-canvas');
        const scene = new THREE.Scene();
        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -658,7 +598,6 @@
            if (savedEleven) document.getElementById('eleven-key-input').value = savedEleven;
        });
 
-       // 1. Manejo de Carga de Imágenes para Visión Artificial
        function handleImageUpload(event) {
            const file = event.target.files[0];
            if (!file) return;
@@ -672,7 +611,6 @@
            reader.readAsDataURL(file);
        }
 
-       // 2. Módulo Tripo AI para Generación 3D
        async function generarModelo3DConTripo(promptTexto) {
            const ai3dKey = localStorage.getItem('ai3d_api_key') || document.getElementById('ai3d-key-input').value.trim();
            
@@ -714,7 +652,6 @@
            }
        }
 
-       // 3. Módulo de Control de iPad (Puente de Automatización y Shapr3D)
        function ejecutarComandoIPad(accion, objetivo, extraInfo = "") {
            document.getElementById('cad-code-display').innerText = `// PUENTE IPAD / SHAPR3D\nAcción: ${accion}\nObjetivo: ${objetivo}\nStatus: [DISPARANDO ATAJO]`;
            
@@ -1000,84 +937,6 @@
        function checkEnter(e) {
            if (e.key === 'Enter') sendPrompt();
        }
-
-       function addChatMessage(text, sender, isHtml = false) {
-           const chat = document.getElementById('jarvis-chat');
-           const div = document.createElement('div');
-           div.className = `msg ${sender}`;
-           if (isHtml) { div.innerHTML = text; } else { div.innerText = text; }
-           chat.appendChild(div);
-           chat.scrollTop = chat.scrollHeight;
-       }
-
-       // --- Sistema de Voz con ElevenLabs y Respaldo Local ---
-       async function speakJarvis(text) {
-           const waveGroup = document.getElementById('voice-waves');
-           if (waveGroup) waveGroup.classList.add('speaking-active');
-
-           const cleanText = text.replace(/<[^>]*>?/gm, '').replace(/["'«»\[\]]/g, '');
-           const elevenKey = localStorage.getItem('elevenlabs_api_key') || document.getElementById('eleven-key-input').value.trim();
-           const selectedVoiceId = document.getElementById('eleven-voice-select').value || "nPczCjzI2devNBz1zQrb";
-
-           if (!elevenKey) {
-               fallbackBrowserSpeech(cleanText, waveGroup);
-               return;
-           }
-
-           try {
-               const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${selectedVoiceId}?output_format=mp3_44100_128`, {
-                   method: 'POST',
-                   headers: {
-                       'Content-Type': 'application/json',
-                       'xi-api-key': elevenKey
-                   },
-                   body: JSON.stringify({
-                       text: cleanText,
-                       model_id: "eleven_flash_v2_5",
-                       voice_settings: {
-                           stability: 0.75,
-                           similarity_boost: 0.85
-                       }
-                   })
-               });
-
-               if (response.ok) {
-                   const blob = await response.blob();
-                   const audioUrl = URL.createObjectURL(blob);
-                   const audio = new Audio(audioUrl);
-                   audio.onended = () => {
-                       if (waveGroup) waveGroup.classList.remove('speaking-active');
-                   };
-                   audio.play();
-               } else {
-                   fallbackBrowserSpeech(cleanText, waveGroup);
-               }
-           } catch (err) {
-               fallbackBrowserSpeech(cleanText, waveGroup);
-           }
-       }
-
-       function fallbackBrowserSpeech(text, waveGroup) {
-           if ('speechSynthesis' in window) {
-               window.speechSynthesis.cancel();
-               const speech = new SpeechSynthesisUtterance(text);
-               speech.lang = 'es-ES';
-               speech.rate = 0.9;
-               speech.pitch = 0.4;
-               speech.onend = () => {
-                   if (waveGroup) waveGroup.classList.remove('speaking-active');
-               };
-               window.speechSynthesis.speak(speech);
-           } else {
-               if (waveGroup) waveGroup.classList.remove('speaking-active');
-           }
-       }
-
-       window.addEventListener('resize', () => {
-           camera.aspect = window.innerWidth / window.innerHeight;
-           camera.updateProjectionMatrix();
-           renderer.setSize(window.innerWidth, window.innerHeight);
-       });
    </script>
 </body>
 </html>
